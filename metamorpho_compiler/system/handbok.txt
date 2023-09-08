@@ -1,0 +1,135 @@
+--------------------------------------------------------------------------
+Þýðandahandbók          Eftir Matthías Ragnarsson
+--------------------------------------------------------------------------
+
+Eftirfarandi eru leiðbeiningar við forritunarmálið mitt. Athugið að ég
+notaði glibc hashtable, þannig glibc er dependency. Hægt er að installa
+því með package manager í helstu Linux stýrikerfum geri ég ráð fyrir.
+Sjá README.txt í development möppunni fyrir meiri útskýringar.
+
+Þýðing forrits:
+$ ./compile.sh forrit.meta
+$ morpho -c forrit.masm
+
+Gert er ráð fyrir að hægt sé að kalla á morpho þýðandann svona hjá notanda,
+Þ.e. að hann sé í PATH. "forrit" getur líka verið hvaða nafn sem valið er.
+
+Keyrsla forrits:
+$ morpho out
+
+Gefið er dæmi um forritstexta, "forrit.meta" í þessari skrá.
+
+--------------------------------------------------------------------------
+Heildarforrit
+--------------------------------------------------------------------------
+
+Eitt forrit er runa af föllum og inní hverju falli (body) er runa af skipunum,
+þar sem hver skipun er gildisveiting/skilgreining breytu, kall í fall, lykkja
+eða ef-annars setning. 
+
+Tagið á skilgreindum breytum þarf ekki að taka fram. Öll tög eru heiltölur, 
+rauntölur, boolsk gildi eða strengir. Passa þarf að blanda þeim ekki saman, 
+því slíkt verður ekki meðhöndlað sérstaklega. Morpho smalinn mun kvarta í slíkum
+tilfellum.
+
+Inní lykkjum og ef-annars setningum eru breytur innan viðkomandi falls skilgreindar
+og hægt að breyta þeim þar. Einnig eru breytur sem skilgreindar eru innan lykkja
+og ef-annars setninga þ.a. þær eru líka skilgreindar allstaðar í viðkomandi falli,
+sem er frábrugðið hefðbundnum forritunarmálum eins og C. Einnig er hægt að hafa
+endalaust faldaðar lykkjur og ef-annars setningar.
+
+Fall að nafni "megin" verður að vera í forritinu með engum viðföngum. Það er líkt
+og "main" í C.
+
+EBNF:
+program         = { function };
+function        = "fall", name, "(", [ name, { ",", name } ], ")", "{", body, "}";
+body            = { statement };
+statement       = name, "=", expression, ";" | function_call ";" | 
+                  "skrifa", expression, ";" | "skila", [ expression ], ";" |
+                  "lykkja", "(", boolean_expr, ")", "{", body, "}" |
+                  "ef", "(", boolean_expr, ")", "{", body, "}", annars, "{", body, "}";
+function_call   = name, "(", [ expression, { ",", expression } ], ")";
+
+Dæmi:
+
+fall daemifall(a, b, c)
+{
+    lykkja (a < 20)
+    {
+        a = a + 1;
+        ef (c) { b = b + a; }
+        annars { b = b - a; }
+    }
+
+    skila -(b*2);
+}
+
+fall megin()
+{
+    a = 43;
+    c = satt;
+    skrifa a + daemifall(a, 67, c);
+}
+
+Þetta fall skrifar útkomuna út á skjá.
+
+
+--------------------------------------------------------------------------
+Segðir
+--------------------------------------------------------------------------
+
+Segðir eru annars vegar boolskar og hinsvegar tölulegar með algengum aðgerðum.
+Það sem er innan sviga er alltaf reiknað fyrst, t.d. 5*(6 + 1) = 5*7.
+Einnig er reiknað frá vinstri til hægri ef forgangur er sá sami.
+Kall í fall getur staðið fyrir það gildi sem það skilar í segð.
+
+EBNF:
+expression      = boolean_expr | numerical_expr | str_literal;
+
+boolean_expr    = ["ekki"], boolean, { boolean_op, ["ekki"] boolean };
+boolean         = "satt" | "osatt" | "oskilgreint" | function_call;
+                  number_expr, boolean_num_op, number_expr | "(", boolean_expr, ")";
+
+numerical_expr  = ["-"], term, { num_op, ["-"], term };
+term            = number | function_call | "(", numerical_expr, ")" | name;
+
+num_op          = "+" | "-" | "*" | "/" | "%";
+boolean_op      = "ogeda" | "og";
+boolean_num_op  = "==" | "<=" | ">=" | "<" | ">" | "!=";
+
+Forgangur aðgerða er eftirfarandi:
+
+1: - (einundarmínus)
+2: * / % (margföldun, deiling, modulus)
+3: + - (tvíundarplús og mínus)
+
+Dæmi: 
+6*-7 + 8 = -42 + 8 = -34.
+
+4. == <= >= < > != 
+5. ekki (eins og not/!)
+6. og
+7. ogeda (eins og "or")
+
+Dæmi:
+89-6 < 90 og 4 != 4 ogeda osatt ogeda satt 
+= 83 < 90 og 4 != 4 ogeda osatt ogeda satt 
+= satt og 4 != 4 ogeda osatt ogeda satt
+= satt og osatt ogeda osatt ogeda satt
+= osatt ogeda osatt ogeda satt 
+= osatt ogeda satt 
+= satt
+
+Athugið að "ogeda" stendur fyrir lógískt "or", til að endurspegla almennan skilning á
+því orði. Flestir skilja "eða" sem lógískt "xor" í daglegu tali.
+Einnig er "oskilgreint" skilið sem "osatt" í boolskum segðum, en það gildi er á
+stöðum sem ekki hafa verið skilgreindir í vakningarfærslunni.
+
+number getur verið heiltala eða rauntala. T.d. 4, 9.9, 0.3, .123, 0.0.
+
+name eða breytu/fallsnafn getur verið samsetning tölustafa, bókstafa í enska
+stafrófinu og undirstrikana, þ.a. fyrsta letrið sé ekki tölustafur.
+
+str_literal eða strengur getur innihaldið hvaða tákn sem er, svo lengi sem
+það er umvafið gæsalöppum.

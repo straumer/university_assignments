@@ -1,0 +1,25 @@
+fall megin()
+{
+    tala_1 = 23;
+    tala_2 = 3;
+    utkoma = -(tala_1*(-4+2) + skritid_fall(45, tala_2));
+
+    skrifa utkoma;
+}
+
+fall skritid_fall(a, b)
+{
+    counter_1 = 0;
+    utkoma = 0;
+    lykkja (counter_1 < a)
+    {
+        counter_2 = 0;
+        lykkja (counter_2 < 2)
+        {
+            utkoma = utkoma + counter_1;
+            counter_2 = counter_2 + 1;
+        }
+        counter_1 = counter_1 + 1;
+    }
+    skila utkoma*b;
+}
